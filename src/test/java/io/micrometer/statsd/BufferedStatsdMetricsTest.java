@@ -60,7 +60,7 @@ class BufferedStatsdMetricsTest {
 	}
 
 	@Test
-	void resumeSendingMetrics_whenServerIntermittentlyFails() throws InterruptedException {
+	void sendMetrics_handleIOException() throws InterruptedException {
 		StatsdProtocol protocol = StatsdProtocol.UDP;
 		serverLatch = new CountDownLatch(1);
 		server = startServer(protocol, 0);
@@ -157,6 +157,7 @@ class BufferedStatsdMetricsTest {
 			}
 
 			public int maxPacketLength() {
+				//this is a very large value that should trigger an IOException when we try to send
 				return 100_000;
 			}
 		};
