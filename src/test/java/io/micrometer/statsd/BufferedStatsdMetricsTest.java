@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.awaitility.Awaitility.await;
 
-class MultiThreadedMetricsTest {
+class BufferedStatsdMetricsTest {
 
 	StatsdMeterRegistry meterRegistry;
 	DisposableChannel server;
@@ -63,45 +63,15 @@ class MultiThreadedMetricsTest {
 	void resumeSendingMetrics_whenServerIntermittentlyFails() throws InterruptedException {
 		StatsdProtocol protocol = StatsdProtocol.UDP;
 		serverLatch = new CountDownLatch(1);
-		AtomicInteger writeCount = new AtomicInteger();
 		server = startServer(protocol, 0);
 
 		final int port = server.address().getPort();
 
 		meterRegistry = new StatsdMeterRegistry(getBufferedConfig(protocol, port), Clock.SYSTEM);
 		startRegistryAndWaitForClient();
-		trackWritesForUdpClient(protocol, writeCount);
 		new FastCountingThread(Counter.builder("my.counter.1").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.2").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.3").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.4").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.5").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.6").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.7").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.8").register(meterRegistry)).start();
-		new FastCountingThread(Counter.builder("my.counter.9").register(meterRegistry)).start();
 
-
-		while (true) {
-			server.disposeNow();
-			server = startServer(protocol, port);
-			Thread.sleep(7);
-		}
-	}
-
-	private void trackWritesForUdpClient(StatsdProtocol protocol, AtomicInteger writeCount) {
-		if (protocol == StatsdProtocol.UDP) {
-			await().until(() -> meterRegistry.statsdConnection.get() != null);
-			((Connection) meterRegistry.statsdConnection.get())
-					.addHandler(new LoggingHandler("udpclient", LogLevel.INFO))
-					.addHandler(new ChannelOutboundHandlerAdapter() {
-						@Override
-						public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-							writeCount.incrementAndGet();
-							super.write(ctx, msg, promise);
-						}
-					});
-		}
+		Thread.sleep(Duration.ofMinutes(1).toMillis());
 	}
 
 	private void startRegistryAndWaitForClient() {
@@ -187,7 +157,7 @@ class MultiThreadedMetricsTest {
 			}
 
 			public int maxPacketLength() {
-				return 10_000;
+				return 100_000;
 			}
 		};
 	}
